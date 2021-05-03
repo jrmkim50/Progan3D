@@ -11,8 +11,8 @@ import numpy as np
 import tensorflow as tf
 
 import config
-import tfutil
-import dataset
+import tfutil_3D
+import dataset_3D
 import misc
 
 #----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ def process_reals(x, lod, mirror_augment, drange_data, drange_net):
             y = tf.reduce_mean(y, axis=[3, 5], keepdims=True)
             y = tf.tile(y, [1, 1, 1, 2, 1, 2])
             y = tf.reshape(y, [-1, s[1], s[2], s[3]])
-            x = tfutil.lerp(x, y, lod - tf.floor(lod))
+            x = tfutil_3D.lerp(x, y, lod - tf.floor(lod))
         with tf.name_scope('UpscaleLOD'): # Upscale to match the expected input/output size of the networks.
             s = tf.shape(x)
             factor = tf.cast(2 ** tf.floor(lod), tf.int32)
@@ -148,7 +148,7 @@ def train_progressive_gan(
     resume_time             = 0.0):         # Assumed wallclock time at the beginning. Affects reporting.
 
     maintenance_start_time = time.time()
-    training_set = dataset.load_dataset(data_dir=config.data_dir, verbose=True, **config.dataset)
+    training_set = dataset_3D.load_dataset(data_dir=config.data_dir, verbose=True, **config.dataset)
 
     # Construct networks.
     with tf.device('/gpu:0'):
@@ -158,8 +158,8 @@ def train_progressive_gan(
             G, D, Gs = misc.load_pkl(network_pkl)
         else:
             print('Constructing networks...')
-            G = tfutil.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **config.G)
-            D = tfutil.Network('D', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **config.D)
+            G = tfutil_3D.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **config.G)
+            D = tfutil_3D.Network('D', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **config.D)
             Gs = G.clone('Gs')
         Gs_update_op = Gs.setup_as_moving_average_of(G, beta=G_smoothing)
     G.print_layers(); D.print_layers()
@@ -173,8 +173,8 @@ def train_progressive_gan(
         reals, labels   = training_set.get_minibatch_tf()
         reals_split     = tf.split(reals, config.num_gpus)
         labels_split    = tf.split(labels, config.num_gpus)
-    G_opt = tfutil.Optimizer(name='TrainG', learning_rate=lrate_in, **config.G_opt)
-    D_opt = tfutil.Optimizer(name='TrainD', learning_rate=lrate_in, **config.D_opt)
+    G_opt = tfutil_3D.Optimizer(name='TrainG', learning_rate=lrate_in, **config.G_opt)
+    D_opt = tfutil_3D.Optimizer(name='TrainD', learning_rate=lrate_in, **config.D_opt)
     for gpu in range(config.num_gpus):
         with tf.name_scope('GPU%d' % gpu), tf.device('/gpu:%d' % gpu):
             G_gpu = G if gpu == 0 else G.clone(G.name + '_shadow')
@@ -183,9 +183,9 @@ def train_progressive_gan(
             reals_gpu = process_reals(reals_split[gpu], lod_in, mirror_augment, training_set.dynamic_range, drange_net)
             labels_gpu = labels_split[gpu]
             with tf.name_scope('G_loss'), tf.control_dependencies(lod_assign_ops):
-                G_loss = tfutil.call_func_by_name(G=G_gpu, D=D_gpu, opt=G_opt, training_set=training_set, minibatch_size=minibatch_split, **config.G_loss)
+                G_loss = tfutil_3D.call_func_by_name(G=G_gpu, D=D_gpu, opt=G_opt, training_set=training_set, minibatch_size=minibatch_split, **config.G_loss)
             with tf.name_scope('D_loss'), tf.control_dependencies(lod_assign_ops):
-                D_loss = tfutil.call_func_by_name(G=G_gpu, D=D_gpu, opt=D_opt, training_set=training_set, minibatch_size=minibatch_split, reals=reals_gpu, labels=labels_gpu, **config.D_loss)
+                D_loss = tfutil_3D.call_func_by_name(G=G_gpu, D=D_gpu, opt=D_opt, training_set=training_set, minibatch_size=minibatch_split, reals=reals_gpu, labels=labels_gpu, **config.D_loss)
             G_opt.register_gradients(tf.reduce_mean(G_loss), G_gpu.trainables)
             D_opt.register_gradients(tf.reduce_mean(D_loss), D_gpu.trainables)
     G_train_op = G_opt.apply_updates()
@@ -226,9 +226,9 @@ def train_progressive_gan(
         # Run training ops.
         for repeat in range(minibatch_repeats):
             for _ in range(D_repeats):
-                tfutil.run([D_train_op, Gs_update_op], {lod_in: sched.lod, lrate_in: sched.D_lrate, minibatch_in: sched.minibatch})
+                tfutil_3D.run([D_train_op, Gs_update_op], {lod_in: sched.lod, lrate_in: sched.D_lrate, minibatch_in: sched.minibatch})
                 cur_nimg += sched.minibatch
-            tfutil.run([G_train_op], {lod_in: sched.lod, lrate_in: sched.G_lrate, minibatch_in: sched.minibatch})
+            tfutil_3D.run([G_train_op], {lod_in: sched.lod, lrate_in: sched.G_lrate, minibatch_in: sched.minibatch})
 
         # Perform maintenance tasks once per tick.
         done = (cur_nimg >= total_kimg * 1000)
@@ -244,17 +244,17 @@ def train_progressive_gan(
 
             # Report progress.
             print('tick %-5d kimg %-8.1f lod %-5.2f minibatch %-4d time %-12s sec/tick %-7.1f sec/kimg %-7.2f maintenance %.1f' % (
-                tfutil.autosummary('Progress/tick', cur_tick),
-                tfutil.autosummary('Progress/kimg', cur_nimg / 1000.0),
-                tfutil.autosummary('Progress/lod', sched.lod),
-                tfutil.autosummary('Progress/minibatch', sched.minibatch),
-                misc.format_time(tfutil.autosummary('Timing/total_sec', total_time)),
-                tfutil.autosummary('Timing/sec_per_tick', tick_time),
-                tfutil.autosummary('Timing/sec_per_kimg', tick_time / tick_kimg),
-                tfutil.autosummary('Timing/maintenance_sec', maintenance_time)))
-            tfutil.autosummary('Timing/total_hours', total_time / (60.0 * 60.0))
-            tfutil.autosummary('Timing/total_days', total_time / (24.0 * 60.0 * 60.0))
-            tfutil.save_summaries(summary_log, cur_nimg)
+                tfutil_3D.autosummary('Progress/tick', cur_tick),
+                tfutil_3D.autosummary('Progress/kimg', cur_nimg / 1000.0),
+                tfutil_3D.autosummary('Progress/lod', sched.lod),
+                tfutil_3D.autosummary('Progress/minibatch', sched.minibatch),
+                misc.format_time(tfutil_3D.autosummary('Timing/total_sec', total_time)),
+                tfutil_3D.autosummary('Timing/sec_per_tick', tick_time),
+                tfutil_3D.autosummary('Timing/sec_per_kimg', tick_time / tick_kimg),
+                tfutil_3D.autosummary('Timing/maintenance_sec', maintenance_time)))
+            tfutil_3D.autosummary('Timing/total_hours', total_time / (60.0 * 60.0))
+            tfutil_3D.autosummary('Timing/total_days', total_time / (24.0 * 60.0 * 60.0))
+            tfutil_3D.save_summaries(summary_log, cur_nimg)
 
             # Save snapshots.
             if cur_tick % image_snapshot_ticks == 0 or done:
@@ -280,9 +280,9 @@ if __name__ == "__main__":
     np.random.seed(config.random_seed)
     print('Initializing TensorFlow...')
     os.environ.update(config.env)
-    tfutil.init_tf(config.tf_config)
+    tfutil_3D.init_tf(config.tf_config)
     print('Running %s()...' % config.train['func'])
-    tfutil.call_func_by_name(**config.train)
+    tfutil_3D.call_func_by_name(**config.train)
     print('Exiting...')
 
 #----------------------------------------------------------------------------
