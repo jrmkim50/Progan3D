@@ -215,9 +215,9 @@ class ThreadPool(object):
 
 def display(tfrecord_dir):
     print('Loading dataset "%s"' % tfrecord_dir)
-    tfutil.init_tf({'gpu_options.allow_growth': True})
-    dset = dataset.TFRecordDataset(tfrecord_dir, max_label_size='full', repeat=False, shuffle_mb=0)
-    tfutil.init_uninited_vars()
+    tfutil_3D.init_tf({'gpu_options.allow_growth': True})
+    dset = dataset_3D.TFRecordDataset(tfrecord_dir, max_label_size='full', repeat=False, shuffle_mb=0)
+    tfutil_3D.init_uninited_vars()
     
     idx = 0
     while True:
@@ -241,9 +241,9 @@ def display(tfrecord_dir):
 
 def extract(tfrecord_dir, output_dir):
     print('Loading dataset "%s"' % tfrecord_dir)
-    tfutil.init_tf({'gpu_options.allow_growth': True})
-    dset = dataset.TFRecordDataset(tfrecord_dir, max_label_size=0, repeat=False, shuffle_mb=0)
-    tfutil.init_uninited_vars()
+    tfutil_3D.init_tf({'gpu_options.allow_growth': True})
+    dset = dataset_3D.TFRecordDataset(tfrecord_dir, max_label_size=0, repeat=False, shuffle_mb=0)
+    tfutil_3D.init_uninited_vars()
     
     print('Extracting images to "%s"' % output_dir)
     if not os.path.isdir(output_dir):
@@ -269,11 +269,11 @@ def extract(tfrecord_dir, output_dir):
 def compare(tfrecord_dir_a, tfrecord_dir_b, ignore_labels):
     max_label_size = 0 if ignore_labels else 'full'
     print('Loading dataset "%s"' % tfrecord_dir_a)
-    tfutil.init_tf({'gpu_options.allow_growth': True})
-    dset_a = dataset.TFRecordDataset(tfrecord_dir_a, max_label_size=max_label_size, repeat=False, shuffle_mb=0)
+    tfutil_3D.init_tf({'gpu_options.allow_growth': True})
+    dset_a = dataset_3D.TFRecordDataset(tfrecord_dir_a, max_label_size=max_label_size, repeat=False, shuffle_mb=0)
     print('Loading dataset "%s"' % tfrecord_dir_b)
-    dset_b = dataset.TFRecordDataset(tfrecord_dir_b, max_label_size=max_label_size, repeat=False, shuffle_mb=0)
-    tfutil.init_uninited_vars()
+    dset_b = dataset_3D.TFRecordDataset(tfrecord_dir_b, max_label_size=max_label_size, repeat=False, shuffle_mb=0)
+    tfutil_3D.init_uninited_vars()
     
     print('Comparing datasets')
     idx = 0
