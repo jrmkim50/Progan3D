@@ -87,7 +87,9 @@ desc += '-MOUSE';            dataset = EasyDict(tfrecord_dir='GAN_DS'); train.mi
 
 # Config presets (choose one).
 
-desc += '-preset-v2-1gpu'; num_gpus = 1; sched.minibatch_base = 4; sched.minibatch_dict = {4: 2048, 8: 1024, 16: 128, 32: 32, 64: 8, 128: 1, 256: 1, 512: 1}; sched.G_lrate_dict = {1024: 0.0015}; sched.D_lrate_dict = EasyDict(sched.G_lrate_dict); train.total_kimg = 120000
+#desc += '-preset-v2-1gpu'; num_gpus = 1; sched.minibatch_base = 4; sched.minibatch_dict = {4: 2048, 8: 1024, 16: 128, 32: 32, 64: 8, 128: 1, 256: 1, 512: 1}; sched.G_lrate_dict = {1024: 0.0015}; sched.D_lrate_dict = EasyDict(sched.G_lrate_dict); train.total_kimg = 120000
+
+desc += '-preset-v2-1gpu'; num_gpus = 1; sched.minibatch_base = 4; sched.minibatch_dict = {4: 512, 8: 256, 16: 128, 32: 32, 64: 8, 128: 4, 256: 2, 512: 1}; sched.G_lrate_dict = {1024: 0.0015}; sched.D_lrate_dict = EasyDict(sched.G_lrate_dict); train.total_kimg = 120000
 
 #desc += '-preset-v2-2gpus'; num_gpus = 2; sched.minibatch_base = 8; sched.minibatch_dict = {4: 4096, 8: 2048, 16: 256, 32: 64, 64: 16, 128: 2, 256: 2}; sched.G_lrate_dict = {512: 0.0015, 1024: 0.002}; sched.D_lrate_dict = EasyDict(sched.G_lrate_dict); train.total_kimg = 120000
 
